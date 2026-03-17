@@ -2,6 +2,7 @@ from fastapi import FastAPI, UploadFile, File
 import os
 from app.services.pdf import read_pdf
 from app.rag.chunk import chunk_text
+from app.rag.embedding import embed_texts
 
 app = FastAPI()
 
@@ -25,9 +26,10 @@ async def upload_file(file: UploadFile = File(...)):
 
     text = read_pdf(file_path)
     chunks = chunk_text(text)
+    embeddings = embed_texts(chunks[:5])
 
     return {
         "filename": file.filename,
         "chunks_count": len(chunks),
-        "preview": chunks[:2]
+        "embedding_dim": len(embeddings[0])
     }
