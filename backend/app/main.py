@@ -1,6 +1,7 @@
 from fastapi import FastAPI, UploadFile, File
 import os
 from app.services.pdf import read_pdf
+from app.rag.chunk import chunk_text
 
 app = FastAPI()
 
@@ -23,8 +24,10 @@ async def upload_file(file: UploadFile = File(...)):
         f.write(content)
 
     text = read_pdf(file_path)
+    chunks = chunk_text(text)
 
     return {
         "filename": file.filename,
-        "text_preview": text[:500]
+        "chunks_count": len(chunks),
+        "preview": chunks[:2]
     }
