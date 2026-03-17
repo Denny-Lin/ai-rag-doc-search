@@ -1,5 +1,6 @@
 from fastapi import FastAPI, UploadFile, File
 import os
+from app.services.pdf import read_pdf
 
 app = FastAPI()
 
@@ -21,7 +22,9 @@ async def upload_file(file: UploadFile = File(...)):
         content = await file.read()
         f.write(content)
 
+    text = read_pdf(file_path)
+
     return {
         "filename": file.filename,
-        "message": "File uploaded successfully"
+        "text_preview": text[:500]
     }
