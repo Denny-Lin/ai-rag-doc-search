@@ -5,89 +5,116 @@ import { useState, useRef, useEffect } from "react";
 export default function Home() {
   const [file, setFile] = useState<File | null>(null);
   const [input, setInput] = useState("");
-  const [messages, setMessages] = useState<
-    { role: "user" | "ai"; content: string }[]
-  >([]);
+  const [messages, setMessages] = useState<{ role: "user" | "ai"; content: string }[]>([]);
   const [loading, setLoading] = useState(false);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
 
-  // auto scroll
+  // Auto-scroll to the bottom when messages or loading state changes
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages, loading]);
 
-  const sendMessage = async () => {
-    if (!input) return;
+  /**
+   * Enhanced Fetch Helper
+   * Increased retries to 5 and delay to 3s to handle Render's "Cold Start" (up to 50s).
+   */
+  const fetchWithRetry = async (url: string, options: any, retries = 5) => {
+    for (let i = 0; i < retries; i++) {
+      try {
+        const res = await fetch(url, options);
+        // Throw error if response is not 2xx to trigger catch/retry logic
+        if (!res.ok) throw new Error(`API error: ${res.status}`);
+        return await res.json();
+      } catch (err) {
+        if (i === retries - 1) throw err; // Final attempt failed
+        // Wait 3 seconds before retrying
+        await new Promise((r) => setTimeout(r, 3000));
+      }
+    }
+  };
 
-    // add user message
-    setMessages((prev) => [...prev, { role: "user", content: input }]);
+  const sendMessage = async () => {
+    if (!input && !file) return;
+
+    const question = input;
+    // Update UI with user message immediately
+    setMessages((prev) => [...prev, { role: "user", content: question || "Uploading file..." }]);
+    setInput("");
     setLoading(true);
 
     try {
-      // upload file if exists
+      /**
+       * STEP 1: File Upload
+       * Only proceeds if a file is selected.
+       */
       if (file) {
         const formData = new FormData();
         formData.append("file", file);
 
-        await fetch("https://ai-rag-doc-search.onrender.com/upload", {
-          method: "POST",
-          body: formData,
-        });
-
-        setFile(null);
+        await fetchWithRetry(
+          "https://ai-rag-doc-search.onrender.com",
+          {
+            method: "POST",
+            body: formData,
+            // Don't set Content-Type header manually for FormData; fetch handles it.
+          }
+        );
       }
 
-      // ask question
-      const res = await fetch(
-        `https://ai-rag-doc-search.onrender.com/ask?question=${input}`,
-        { method: "POST" }
+      /**
+       * STEP 2: Ask Question
+       * Encodes the question into the URL query string to match the FastAPI @app.post("/ask") logic.
+       */
+      const data = await fetchWithRetry(
+        `https://ai-rag-doc-search.onrender.com{encodeURIComponent(question)}`,
+        { 
+          method: "POST",
+          headers: { "Accept": "application/json" }
+        }
       );
 
-      const data = await res.json();
-
-      // add AI message
+      // Add AI response to chat
       setMessages((prev) => [
         ...prev,
-        { role: "ai", content: data.answer || "No response" },
+        { role: "ai", content: data.answer || "I received an empty response." },
       ]);
+
+      // Clear file only after full success
+      setFile(null);
+
     } catch (err) {
-      // error fallback
+      console.error("Connection failed:", err);
       setMessages((prev) => [
         ...prev,
-        { role: "ai", content: "Error occurred while fetching response." },
+        {
+          role: "ai",
+          content: "The server is waking up (Render cold start) or is currently offline. Please try again in 15 seconds.",
+        },
       ]);
     } finally {
-      // 🔥 FIX: always stop loading
       setLoading(false);
     }
-
-    setInput("");
   };
 
   return (
     <div className="flex flex-col h-screen bg-gray-100">
-
-      {/* Header */}
-      <div className="p-4 bg-white border-b text-lg font-semibold">
+      {/* Navigation / Header */}
+      <div className="p-4 bg-white border-b text-lg font-semibold shadow-sm">
         AI Document Chat
       </div>
 
-      {/* Chat Area */}
+      {/* Chat Messages Container */}
       <div className="flex-1 overflow-y-auto p-6 space-y-4">
         {messages.map((msg, i) => (
           <div
             key={i}
-            className={`flex ${
-              msg.role === "user" ? "justify-end" : "justify-start"
-            }`}
+            className={`flex ${msg.role === "user" ? "justify-end" : "justify-start"}`}
           >
             <div
-              className={`px-4 py-2 rounded-lg max-w-lg ${
-                msg.role === "user"
-                  ? "bg-blue-500 text-white"
-                  : "bg-white border"
+              className={`px-4 py-2 rounded-2xl max-w-lg shadow-sm ${
+                msg.role === "user" ? "bg-blue-600 text-white" : "bg-white border text-gray-800"
               }`}
             >
               {msg.content}
@@ -95,62 +122,60 @@ export default function Home() {
           </div>
         ))}
 
-        {/* 🔥 Loading bubble */}
+        {/* AI Typing Indicator */}
         {loading && (
           <div className="flex justify-start">
-            <div className="bg-white border px-4 py-2 rounded-lg text-gray-400">
-              ...
+            <div className="bg-white border px-4 py-2 rounded-2xl text-gray-400 animate-pulse">
+              AI is processing...
             </div>
           </div>
         )}
-
         <div ref={bottomRef} />
       </div>
 
       {/* Input Bar */}
       <div className="p-4 bg-white border-t">
-        <div className="flex items-center gap-2 border rounded-full px-4 py-2 shadow-sm">
-
-          {/* Hidden file input */}
+        <div className="flex items-center gap-2 border rounded-full px-4 py-2 shadow-sm focus-within:ring-2 ring-blue-300 transition-all">
+          
           <input
             type="file"
             ref={fileInputRef}
             className="hidden"
+            accept=".pdf"
             onChange={(e) => setFile(e.target.files?.[0] || null)}
           />
 
-          {/* Upload button */}
           <button
             onClick={() => fileInputRef.current?.click()}
-            className="bg-gray-200 w-8 h-8 rounded-full flex items-center justify-center text-lg"
+            className="bg-gray-100 hover:bg-gray-200 w-10 h-10 rounded-full flex items-center justify-center transition-colors"
           >
-            +
+            <span className="text-xl text-gray-600">+</span>
           </button>
 
-          {/* File name */}
           {file && (
-            <span className="text-xs text-gray-500 truncate max-w-[100px]">
+            <span className="text-[10px] bg-blue-50 text-blue-600 px-2 py-1 rounded border border-blue-100 truncate max-w-[80px]">
               {file.name}
             </span>
           )}
 
-          {/* Input */}
           <input
-            className="flex-1 outline-none px-2"
-            placeholder="Ask anything..."
+            className="flex-1 outline-none px-2 bg-transparent text-gray-700"
+            placeholder="Type your question..."
             value={input}
             onChange={(e) => setInput(e.target.value)}
-            onKeyDown={(e) => e.key === "Enter" && sendMessage()}
+            onKeyDown={(e) => e.key === "Enter" && !loading && sendMessage()}
+            disabled={loading}
           />
 
-          {/* Send */}
           <button
             onClick={sendMessage}
-            className="bg-black text-white px-4 py-1 rounded-full"
+            disabled={loading || (!input && !file)}
+            className={`bg-black text-white px-5 py-1.5 rounded-full font-medium transition-all ${
+              loading || (!input && !file) ? "opacity-30 cursor-not-allowed" : "hover:bg-gray-800"
+            }`}
           >
             ↑
           </button>
-
         </div>
       </div>
     </div>
