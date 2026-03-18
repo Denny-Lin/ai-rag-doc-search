@@ -19,7 +19,8 @@ The system is designed as a full-stack application with a modern frontend and a 
 
 ## Demo
 
-![App Screenshot](./screenshot.jpg)
+<img src="./screenshot.jpg" width="800"/>
+
 ---
 
 ## Features
