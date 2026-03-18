@@ -30,3 +30,4 @@ chromadb
 groq
 python-dotenv
 torch==2.2.2+cpu
+numpy<2
