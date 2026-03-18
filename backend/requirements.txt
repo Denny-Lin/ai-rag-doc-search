@@ -16,16 +16,14 @@ uvicorn
 python-multipart
 pypdf
 
-sentence-transformers
-torch
-
 chromadb
 groq
 python-dotenv
 typing_extensions==4.15.0
 uvicorn==0.42.0
 pypdf
-sentence-transformers
+sentence-transformers==2.6.1
+transformers==4.41.2
 chromadb
 groq
 python-dotenv
