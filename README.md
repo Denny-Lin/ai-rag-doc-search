@@ -1,73 +1,60 @@
 # AI RAG Doc Search
 
-AI-powered RAG (Retrieval-Augmented Generation) SaaS platform for document search, analysis, and question answering. Upload documents and ask questions — the system retrieves relevant content using vector search and generates answers with LLMs.
+An AI-powered RAG (Retrieval-Augmented Generation) SaaS platform for document search, analysis, and question answering. 
+
+Users can upload documents and ask questions — the system retrieves relevant content using vector search and generates answers using LLMs.
 
 ---
 
-# Features
+## Demo Links
 
-- Upload documents (PDF / DOCX / TXT)
-- Semantic search using vector database
-- AI-powered question answering
-- FastAPI backend with async support
-- Local embedding (no cost)
-- Cloud-ready (Docker + Fly.io / AWS)
+- **Frontend**: [https://ai-rag-doc-search.vercel.app](https://ai-rag-doc-search.vercel.app)
+- **Backend API**: [https://ai-rag-doc-search.onrender.com/docs](https://ai-rag-doc-search.onrender.com/docs)
 
 ---
 
-# How It Works (RAG Pipeline)
+## Features
 
-## Document Processing
-
-```
-Upload document
-↓
-Parse file
-↓
-Split into chunks
-↓
-Generate embeddings
-↓
-Store in vector database
-```
-
-## Question Answering
-
-```
-User question
-↓
-Convert to embedding
-↓
-Vector search
-↓
-Retrieve relevant chunks
-↓
-Send to LLM
-↓
-Generate answer
-```
+- Upload PDF documents for analysis.
+- Semantic search using vector embeddings.
+- AI-powered Q&A over uploaded documents.
+- Modern ChatGPT-style UI built with Next.js.
+- End-to-end RAG pipeline integration.
+- Full-stack deployment on Vercel and Render.
 
 ---
 
-# System Architecture
+## How It Works (RAG Pipeline)
 
-```
+### Document Processing
+Upload file -> Extract text (PDF) -> Chunk text -> Generate embeddings -> Store in vector DB (Chroma)
+
+### Question Answering
+User question -> Convert to embedding -> Vector similarity search -> Retrieve relevant chunks -> Send context to LLM (Groq) -> Generate answer
+
+---
+
+## System Architecture
+
+```text
 User
-↓
-Frontend (Next.js / React)
-↓
+
+  |
+Frontend (Next.js)
+  |
 FastAPI Backend
-├─ Authentication
-├─ Upload API
-├─ RAG pipeline
-↓
-Object Storage (R2 / S3)
-↓
-Vector DB (Qdrant)
-↓
-LLM API (Gemini / Groq)
-↓
-Answer
+
+  |-- Upload API
+  |-- RAG pipeline
+  |-- Vector search
+
+        |
+        |-- Local Storage (uploads/)
+        |-- Vector DB (ChromaDB)
+
+        |-- LLM API (Groq)
+              |
+            Answer
 ```
 
 ---
@@ -75,30 +62,22 @@ Answer
 # Tech Stack
 
 ## Backend
-- FastAPI
-- Python
+- Framework: FastAPI
+- Language: Python 3.11+
+- Vector Database: ChromaDB
+- Embeddings: sentence-transformers (BAAI/bge-small-en)
 
 ## Frontend
-- Next.js / React
+- Framework: Next.js (App Router)
+- Library: React
+- Styling: Tailwind CSS
 
-## Database
-- PostgreSQL (Neon / Supabase)
-
-## Storage
-- Cloudflare R2 / AWS S3
-
-## Vector Database
-- Qdrant
-
-## Embedding
-- BAAI/bge-small-en
-
-## LLM
-- Gemini / Groq
+## AI / LLM
+- Inference: Groq (Llama-3 models)
 
 ## Deployment
-- Docker
-- Fly.io / AWS
+- Frontend Hosting: Vercel
+- Backend Hosting: Render
 
 ---
 
@@ -108,27 +87,23 @@ Answer
 ai-rag-doc-search/
 │
 ├─ backend/
-│ ├─ app/
-│ │ ├─ main.py
-│ │ ├─ api/
-│ │ ├─ rag/
-│ │ │ ├─ pipeline.py
-│ │ │ ├─ embedding.py
-│ │ │ └─ search.py
-│ │ ├─ models/
-│ │ └─ services/
+│  ├─ app/
+│  │  ├─ main.py
+│  │  ├─ rag/
+│  │  │  ├─ chunk.py
+│  │  │  ├─ embedding.py
+│  │  │  └─ vector_db.py
+│  │  ├─ services/
+│  │  │  ├─ pdf.py
+│  │  │  └─ llm.py
 │
 ├─ frontend/
-│ ├─ pages/
-│ ├─ components/
-│ └─ services/
-│
-├─ workers/
-│ └─ worker.py
+│  ├─ app/
+│  │  └─ page.tsx
+│  ├─ components/
+│  └─ services/
 │
 ├─ docker/
-│ └─ Dockerfile
-│
 ├─ docker-compose.yml
 └─ README.md
 ```
@@ -148,85 +123,99 @@ cd ai-rag-doc-search
 
 ```
 cd backend
+cd backend
+python3.11 -m venv venv
+source venv/bin/activate
 pip install -r requirements.txt
 ```
 
-## 3. Run Backend
+### Run Server:
 
 ```
 uvicorn app.main:app --reload
 ```
 
-## 4. Run with Docker
+---
+
+## 3. Frontend Setup
 
 ```
-docker build -t ai-rag-doc-search .
-docker run -p 8080:8080 ai-rag-doc-search
+cd frontend
+npm install
+npm run dev
 ```
 
 ---
 
-# Environment Variables
+### Environment Variables
 
-Create a `.env` file:
+Backend `.env` :
 ```
-OPENAI_API_KEY=
-GEMINI_API_KEY=
-GROQ_API_KEY=
-DATABASE_URL=
-QDRANT_URL=
-R2_BUCKET=
+GROQ_API_KEY=your_key
 ```
 
 ---
 
-# Background Processing
+# Current Limitations
+## 1. Render Cold Start
+- Backend sleeps when inactive
+- First request can take 20–60 seconds
+- Causes slow responses
 
-Document processing tasks may take time:
+## 2. High Memory Usage
+- sentence-transformers loads embedding model
+- Can exceed Render free tier memory
+- Previously triggered service restarts
 
-- PDF parsing
-- embedding generation
-- vector indexing
+## 3. Slow Embedding Pipeline
+- Local embedding is CPU-heavy
+- Not suitable for production scale
 
+## 4. No Persistent Storage
+- Files stored in /uploads
+- Lost after server restarts
 
-Recommended tools:
-
-- Redis
-- Celery
-- RQ
-
----
-
-# MVP Scope
-
-1. Initial version should include:
-2. User authentication
-3. Document upload
-4. AI chat with document
+## 5. No Streaming Response
+- Responses are returned only after full generation
+- Not real-time like ChatGPT
 
 ---
 
 # Future Improvements
+## Performance
+- Replace local embedding with API-based embeddings
+- Add caching (Redis)
 
-- multi-document search
-- team collaboration
-- document tagging
-- streaming responses
-- usage tracking
-- subscription billing
+## Architecture
+- Move storage to S3 / R2
+- Replace Chroma with Qdrant / Pinecone
+
+## UX
+- Streaming responses
+- Better loading states
+- File upload progress
+
+## Features
+- Multi-document search
+- User authentication
+- Chat history
+- Source citation
+
+---
+
+# Key Learnings
+- Built a full RAG pipeline from scratch
+- Implemented vector search + embeddings
+- Deployed full-stack AI system
+- Understood cloud limitations (memory / cold start)
+- Optimized token usage and performance
 
 ---
 
 # Summary
+This project demonstrates how to build a real-world AI RAG system:
 
-This project demonstrates how to build a scalable AI RAG SaaS platform using modern AI infrastructure.
-
-Key ideas:
-
-- Store files in object storage
-- Use vector databases for semantic search
-- Use LLMs for answer generation
-- Keep metadata in PostgreSQL
-- Deploy backend with Docker
-
+- Document → Embedding → Vector Search → LLM
+- Full-stack deployment (Next.js + FastAPI)
+- Real production constraints and trade-offs
 
